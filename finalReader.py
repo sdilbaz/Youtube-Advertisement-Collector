@@ -7,11 +7,6 @@ Created on Tue Apr  2 22:44:09 2019
 # Use mp queue for storing the urls for downloading the vids
 # mp pool for different branches
 # set youtube search depth as a variable
-# method for ad url extraction from brower log
-# method for advertising company website extraction from log
-# method for converting and saving advertising company's website contents html2text
-# 
-
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
