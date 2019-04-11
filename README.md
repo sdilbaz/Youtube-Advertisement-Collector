@@ -8,6 +8,7 @@ The Youtube homepage is visited using Selenium Chrome webdriver. The list of tre
 Whenever an advertisement is encountered, the browser log is used to extract the advertisement video id. The advertisement video id is used to log the time the ad was encountered and if the advertisement is encountered for the first time, the video is downloaded with PyTube. In addition, if the advertisement is encountered for the first time, the website the advertisement points to is logged and the source code of the webpage is extracted. The source code is cleaned so that the text consists of letters and numbers. The html2text library is used to convert the pagesource in a format ready for natural language processing.
 
 Example usage:
+	
 	python finalReader.py ads.pickle test "...\chromedriver.exe" --ncpu 1 --restart --timeout 60 --max_depth 2
 
 Functions:
