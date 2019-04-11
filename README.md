@@ -1,5 +1,5 @@
 # Youtube-Advertisement-Collector
-This code identifies advertisement videos that run before YouTube videos  and collecting corresponding information. The advertisement video, the website url the advertisement points to, the page source of the advertising company, and the time the advertisement is encountered is stored. The code utilizes the current structure and layout of YouTube, so the scraper may not work if the YouTube layout changes.
+This code identifies advertisement videos that run before YouTube videos  and collects corresponding information. The advertisement video, the website url the advertisement points to, the page source of the advertising company, and the time the advertisement is encountered is stored. The code utilizes the current structure and layout of YouTube, so the scraper may not work if the YouTube layout changes.
 
 For speeding up the process, the scraping is carried out using multiprocessing, so when running the code as is, run from command line.
 
