@@ -4,94 +4,50 @@ Created on Tue Apr  2 22:44:09 2019
 
 @author: Serdarcan Dilbaz
 """
-# Use mp queue for storing the urls for downloading the vids
-# mp pool for different branches
-# set youtube search depth as a variable
 
+# Web related modules
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
+#from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import TimeoutException
+#from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.common.action_chains import ActionChains
-from browsermobproxy import Server
+from selenium.common.exceptions import WebDriverException
+#from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
-from urllib.parse import quote
 import html2text
 
+# YouTube download module
 from pytube import YouTube
 
-from multiprocessing import Process, Value, Lock, Manager, Queue, Pool
+# Multiprocessing tools
+from multiprocessing import Lock, Manager, Queue, Pool
 import multiprocessing as mp
 
-import time
-import re
-import csv
-import pickle
-import os, shutil
-import argparse
+# Misc modules
+import time, re, pickle, os, shutil, argparse, glob, unicodedata, datetime
 from argparse import RawTextHelpFormatter
-import glob
 
+# Contractions dictionary for expanding contractions in the advertisement website source text
 from contractions import CONTRACTION_MAP
-import unicodedata
 
-
-#class SetQueue(Queue.Queue):
-#    def __init__(self, maxsize):
-#        self.queue = set()
-#    def _put(self, item):
-#        self.queue.add(item)
-#    def _get(self):
-#        return self.queue.pop()
-
-
-#def combine_dicts(l,ads,currentDic):
-#    l.acquire()
-#    print(currentDic)
-##    global ads
-#    for key in currentDic.keys():
-#        if key in ads:
-#            temp=currentDic[key]
-#            ads[key][0].extend(temp[0])
-#        else:
-#            ads[key]=currentDic[key]
-#    l.release()
-    
-    
 def save_vids(vid_ids,save_loc):
-    if not save_loc[-1]=='/' or save_loc[-1]=='\\':
-        if '/' in save_loc:
-            save_loc=save_loc+'/'
-        else:
-            save_loc=save_loc+'\\'
     if type(vid_ids)==str:
-        if '/' in save_loc:
-            vid_ids=vid_ids+'/'
-        else:
-            vid_ids=vid_ids+'\\'
-
-        if not os.path.isdir(save_loc+vid_ids):
-            os.mkdir(save_loc+vid_ids)
-        if not glob.glob(save_loc+vid_ids+'*.mp4'):
+        dest=os.path.join(save_loc,vid_ids)
+        if not os.path.isdir(dest):
+            os.mkdir(dest)
+        if not glob.glob(os.path.join(dest,'*.mp4')):
             yt=YouTube('https://www.youtube.com/watch?v='+vid_ids)
-            yt.streams.first().download(save_loc+vid_ids)
+            yt.streams.first().download(dest)
         
     elif type(vid_ids)==list:
         for vid_id in vid_ids:
             save_vids(vid_id,save_loc)
     else:
         raise TypeError('Wrong input format for saving Vids, expected str or list')
-    return save_loc
-#def saveAdWebsiteTexts(l,vid_id,):
-#    l.acquire()
-#    
-#    
-#    l.release()
     
 def remove_accented_chars(text):
     text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
@@ -172,7 +128,6 @@ def explore_home(chromedriver_path,chrome_options,caps):
 
 def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,l):#l,vid_id,ads,mpcpu,adsite_q,vidurl_q):
     driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
-#    driver.implicitly_wait(60)
     driver.get('https://www.youtube.com/watch?v='+vid)
     time.sleep(2)
     sec_html = driver.page_source
@@ -198,6 +153,7 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,l):#l,vid
                 try:
                     element = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
                     element.click()
+                    
                     driver.switch_to.window(driver.window_handles[-1])
                     
                     ad_website_URL=driver.current_url
@@ -205,12 +161,9 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,l):#l,vid
                     clean_text=html2text.html2text(ad_website_HTML)
                     clean_text=normalize_corpus(re.sub('\s+', ' ', clean_text).strip())
                     
-                    save_loc=save_vids(adID,save_loc)
+                    save_vids(adID,save_loc)
                     
-                    if '/' in save_loc:
-                        textName=save_loc+adID+'/adwebsite.txt'
-                    else:
-                        textName=save_loc+adID+'/adwebsite.txt'
+                    textName=os.path.join(save_loc,adID,'adwebsite.txt')
     
     
                     file = open(textName,"w") 
@@ -224,8 +177,10 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,l):#l,vid
                     ads[adID]=[[adInfo[1]],ad_website_URL]
 
                 except mp.TimeoutError:
-                    print('Timeout')
-
+                    print('Timeout: %s' %adInfo[0])
+                
+                except WebDriverException:
+                    print('Button click failed: %s' %adInfo[0])
                 
         finally:
             l.release()
@@ -246,15 +201,21 @@ def find_ad(browser_log,vid):
 if __name__ == '__main__':
     # Argument Parsing
     parser = argparse.ArgumentParser(description='Scrapes Youtube ads and advertising company websites. \nUse --restart to restart the scraping from scratch by deleting previous data\nExample Usage: python finalReader.py E:\ads\ads.pickle E:\ads --ncpu 2', formatter_class=RawTextHelpFormatter)
-    parser.add_argument('ad_save_loc',help='Save Location for Ad Main Dictionary')
-    parser.add_argument('vid_save_loc',help='Save Location for Ad Videos')
+    parser.add_argument('ad_save_loc',help='Save Location for Ad Main Dictionary', type=str)
+    parser.add_argument('vid_save_loc',help='Save Location for Ad Videos', type=str)
+    parser.add_argument('chromedriver_path', help='Path of the chrome executable', type=str)
     parser.add_argument('--restart', help='Restart collection', action="store_true", default=False, dest='restartCollection')
     parser.add_argument('--ncpu', nargs='?', help='Number of cores for multiprocessing, max by default', default=mp.cpu_count(), type=int, dest='mpcpu')
     parser.add_argument('--timeout',nargs='?', help='For how long the data collection will take place (in seconds), infinite by default', default=float('inf'), type=float, dest='time_limit')
-    parser.add_argument('--chromepath', nargs='?', help='Path of the chrome executable', default='D:/2018-2019/CS525 Informational Retrieval and Social Media/Project/chromedriver.exe', type=str, dest='chromedriver_path')
+    parser.add_argument('--max_depth', nargs='?', help='Depth of Youtube exploration tree', default=1, type=int, dest='search_depth')
+    
     args = parser.parse_args()
     if not args.ad_save_loc.endswith('.pickle'):
-        raise argparse.ArgumentTypeError("ad" % value)
+        raise argparse.ArgumentTypeError("ad_save_loc must end with .pickle")
+    if not os.path.isdir(args.vid_save_loc):
+        raise argparse.ArgumentError("choose a valid directory to save ad videos")
+    if args.search_depth<1:
+        raise argparse.ArgumentError("depth argument must be a positive number")
     
     
     ad_save_loc=args.ad_save_loc
@@ -262,6 +223,7 @@ if __name__ == '__main__':
     mpcpu=min(args.mpcpu,mp.cpu_count())
     time_limit=args.time_limit
     chromedriver_path=args.chromedriver_path
+    search_depth=args.search_depth
 
     if args.restartCollection:
         for the_file in os.listdir(vid_save_loc):
@@ -295,6 +257,7 @@ if __name__ == '__main__':
     currentTime=time.time()
     
     while currentTime-startTime<time_limit:
+        print('Time from start: %s' %str(datetime.timedelta(seconds=currentTime-startTime)))
         rec_vids=explore_home(chromedriver_path,chrome_options,caps)
         while not rec_vids:
             time.sleep(60)
@@ -302,25 +265,25 @@ if __name__ == '__main__':
         
         m = Manager()
         lock = m.Lock()
-        
+                
         pool = Pool(processes=mpcpu)
-        multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc,lock)) for vid in rec_vids]
-        branching_vids=[]
-#        res.get(timeout=10) for res in multiple_results
         
-        for res in multiple_results:        
-            try:
-                branching_vids.append(res.get(timeout=30))
-            except mp.TimeoutError:
-                print('Timeout')
+        for depth in range(search_depth):
+            print('Depth: %s' %depth)
+            multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc,lock)) for vid in rec_vids]
+            branching_vids=[]
+            
+            for res in multiple_results:        
+                try:
+                    branching_vids.append(res.get(timeout=30))
+                    if time.time()-startTime<time_limit:
+                        break
+                except mp.TimeoutError:
+                    print('Timeout')
+            res_vids=branching_vids.copy()
         
-        print(len(ads))
-        
-        pickle_out = open(ad_save_loc,"wb")
-        pickle.dump(ads, pickle_out)
-        pickle_out.close()
+            pickle_out = open(ad_save_loc,"wb")
+            pickle.dump(ads, pickle_out)
+            pickle_out.close()
 
         currentTime=time.time()
-        
-    
-        
