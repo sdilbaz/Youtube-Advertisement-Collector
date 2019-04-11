@@ -9,7 +9,8 @@ Whenever an advertisement is encountered, the browser log is used to extract the
 
 Example usage:
 	
-	python finalReader.py ads.pickle test "...\chromedriver.exe" --ncpu 1 --restart --timeout 60 --max_depth 2
+	python ad_collector.py ads.pickle test "...\chromedriver.exe" --ncpu 1 --restart --timeout 60 --max_depth 2
+
 
 Functions:
 	
