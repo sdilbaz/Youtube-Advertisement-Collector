@@ -18,4 +18,4 @@ Example usage:
 	
 	python ad_collector.py ads.pickle video_save_dir "...\chromedriver.exe" --ncpu 1 --restart --timeout 60 --max_depth 2
 
-The ad information is stored as a dictionary in ads.pickle. The ad videos are stored in video_save_dir where a new directory for each ad is created. The cleaned page source of the ad company is also stored in the same directory. "...\chromedriver.exe" is the path to the chromedriver.
+The ad information is stored as a dictionary in ads.pickle. The ad videos are stored in video_save_dir where a new directory for each ad is created. The cleaned page source of the ad company is also stored in the same directory as a text file. "...\chromedriver.exe" is the path to the [chrome driver](http://chromedriver.chromium.org/downloads).
