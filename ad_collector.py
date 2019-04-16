@@ -199,26 +199,38 @@ def find_ad(browser_log,vid):
             return (vid_id,time.localtime())
     return None
 
+def positive_int(argument):
+    num=int(argument)
+    if num<1:
+        msg="Maximum depth parameter must be a positive number. You entered: %s" %argument
+        raise argparse.ArgumentTypeError(msg)
+    return num
+
+def valid_pickle(argument):
+    file=str(argument)
+    if not file.endswith('.pickle'):
+        msg="ad_save_loc must end with .pickle You entered: %s" %file
+        raise argparse.ArgumentTypeError(msg)
+    return file
+
+def valid_dir(argument):
+    directory=str(argument)
+    if not os.path.isdir(directory):
+        msg="vid_save_loc must be a valid directory. You entered: %s" %directory
+        raise argparse.ArgumentTypeError(msg)
+    return directory
+
 if __name__ == '__main__':
     # Argument Parsing
     parser = argparse.ArgumentParser(description='Scrapes Youtube ads and advertising company websites. \nUse --restart to restart the scraping from scratch by deleting previous data\nExample Usage: python finalReader.py E:\ads\ads.pickle E:\ads --ncpu 2', formatter_class=RawTextHelpFormatter)
-    parser.add_argument('ad_save_loc',help='Save Location for Ad Main Dictionary', type=str)
-    parser.add_argument('vid_save_loc',help='Save Location for Ad Videos', type=str)
+    parser.add_argument('ad_save_loc',help='Save Location for Ad Main Dictionary', type=valid_pickle)
+    parser.add_argument('vid_save_loc',help='Save Location for Ad Videos', type=valid_dir)
     parser.add_argument('chromedriver_path', help='Path of the chrome executable', type=str)
     parser.add_argument('--restart', help='Restart collection', action="store_true", default=False, dest='restartCollection')
     parser.add_argument('--ncpu', nargs='?', help='Number of cores for multiprocessing, max by default', default=mp.cpu_count(), type=int, dest='mpcpu')
     parser.add_argument('--timeout',nargs='?', help='For how long the data collection will take place (in seconds), infinite by default', default=float('inf'), type=float, dest='time_limit')
-    parser.add_argument('--max_depth', nargs='?', help='Depth of Youtube exploration tree', default=1, type=int, dest='search_depth')
-    
-    args = parser.parse_args()
-    if not args.ad_save_loc.endswith('.pickle'):
-        raise argparse.ArgumentTypeError("ad_save_loc must end with .pickle")
-    if not os.path.isdir(args.vid_save_loc):
-        raise argparse.ArgumentError("choose a valid directory to save ad videos")
-    if args.search_depth<1:
-        raise argparse.ArgumentError("depth argument must be a positive number")
-    
-    
+    parser.add_argument('--max_depth', nargs='?', help='Depth of Youtube exploration tree', default=1, type=positive_int, dest='search_depth')
+        
     ad_save_loc=args.ad_save_loc
     vid_save_loc=args.vid_save_loc
     vid_save_loc=os.path.join(vid_save_loc,'ad_data')
