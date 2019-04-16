@@ -126,8 +126,9 @@ def explore_home(chromedriver_path,chrome_options,caps):
     return vids
 
 
-def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,l):#l,vid_id,ads,mpcpu,adsite_q,vidurl_q):
+def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,l):
     driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
+#    driver.implicitly_wait(60)
     driver.get('https://www.youtube.com/watch?v='+vid)
     time.sleep(2)
     sec_html = driver.page_source
@@ -220,10 +221,14 @@ if __name__ == '__main__':
     
     ad_save_loc=args.ad_save_loc
     vid_save_loc=args.vid_save_loc
+    vid_save_loc=os.path.join(vid_save_loc,'ad_data')
     mpcpu=min(args.mpcpu,mp.cpu_count())
     time_limit=args.time_limit
     chromedriver_path=args.chromedriver_path
     search_depth=args.search_depth
+
+    if not os.path.isdir(vid_save_loc):
+        os.mkdir(vid_save_loc)
 
     if args.restartCollection:
         for the_file in os.listdir(vid_save_loc):
@@ -235,7 +240,7 @@ if __name__ == '__main__':
                     shutil.rmtree(file_path)
             except Exception as e:
                 print(e)
-        
+
         if os.path.isfile(ad_save_loc):
             os.remove(ad_save_loc)
         ads={}
@@ -269,7 +274,7 @@ if __name__ == '__main__':
         pool = Pool(processes=mpcpu)
         
         for depth in range(search_depth):
-            print('Depth: %s' %depth)
+            print('Depth %s' %depth)
             multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc,lock)) for vid in rec_vids]
             branching_vids=[]
             
