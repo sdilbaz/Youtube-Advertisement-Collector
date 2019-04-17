@@ -230,7 +230,9 @@ if __name__ == '__main__':
     parser.add_argument('--ncpu', nargs='?', help='Number of cores for multiprocessing, max by default', default=mp.cpu_count(), type=int, dest='mpcpu')
     parser.add_argument('--timeout',nargs='?', help='For how long the data collection will take place (in seconds), infinite by default', default=float('inf'), type=float, dest='time_limit')
     parser.add_argument('--max_depth', nargs='?', help='Depth of Youtube exploration tree', default=1, type=positive_int, dest='search_depth')
-        
+    
+    args = parser.parse_args()
+
     ad_save_loc=args.ad_save_loc
     vid_save_loc=args.vid_save_loc
     vid_save_loc=os.path.join(vid_save_loc,'ad_data')
