@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Apr  2 22:44:09 2019
-
 @author: Serdarcan Dilbaz
 """
 
@@ -9,7 +8,7 @@ Created on Tue Apr  2 22:44:09 2019
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-#from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 #from selenium.common.exceptions import TimeoutException
@@ -118,75 +117,94 @@ def explore_home(chromedriver_path,chrome_options,caps):
         elif part.find('"')!=-1:
             end=part.find('"')
         else:
-            print('fuck')
+            print('No video found on YouTube homepage')
         concat_list=part[:end]
         vids.extend(concat_list.split('%2C'))
     vids=[vid for vid in vids if len(re.findall(r'[0-9]|[a-z]|[A-Z]|_|-',vid))==11 and len(vid)==11]
 
     return vids
 
+        
 
-def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,l):
+#vid=home[27]
+#driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
+##    driver.implicitly_wait(60)
+#driver.get('https://www.youtube.com/watch?v='+vid)
+#browser_log = driver.get_log('performance') 
+#adInfo=find_ad(browser_log,vid)
+#if adInfo:
+#    try:
+#        element = WebDriverWait(driver, 2).until(EC.presence_of_element_located((By.TAG_NAME, "button")))
+#        element.click()
+#    except:
+#        element = WebDriverWait(driver, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
+#        element.click()
+    
+
+
+def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc):
+    print(ads)
     driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
 #    driver.implicitly_wait(60)
     driver.get('https://www.youtube.com/watch?v='+vid)
     time.sleep(2)
+    
     sec_html = driver.page_source
     soup=BeautifulSoup(sec_html,'lxml')
     mydivs = str(soup.findAll("div", {"class": "style-scope ytd-watch-next-secondary-results-renderer"}))
     inds=[m.start() for m in re.finditer('ytimg.com/vi/', mydivs)]
     rec_vids=['https://www.youtube.com/watch?v='+mydivs[ind+13:ind+24] for ind in inds]
-    browser_log = driver.get_log('performance') 
     
+    browser_log = driver.get_log('performance') 
     adInfo=find_ad(browser_log,vid)
     
     if adInfo:
         #Check if it is the first time this ad has been seen
         adID=adInfo[0]
         
-        l.acquire()
-        try:
-            if adID in ads:
-                ads[adID][0].append(adInfo[1])
-            else:
-                # Fullscreen
+        if adID in ads:
+            times=ads[adID][0]
+            ad_website_URL=ads[adID][1]
+            ads.pop(adID)
+            ads[adID]=[times+[adInfo[1]],ad_website_URL]
+            #ads[adID][0].append(adInfo[1])
+        else:
+            # Fullscreen
 #                driver.find_element_by_tag_name('body').send_keys("f")
+            try:
+                element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.TAG_NAME, "button")))
+                element.click()
+            except:
                 try:
-                    element = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
+                    element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
                     element.click()
-                    
-                    driver.switch_to.window(driver.window_handles[-1])
-                    
-                    ad_website_URL=driver.current_url
-                    ad_website_HTML=driver.page_source
-                    clean_text=html2text.html2text(ad_website_HTML)
-                    clean_text=normalize_corpus(re.sub('\s+', ' ', clean_text).strip())
-                    
-                    save_vids(adID,save_loc)
-                    
-                    textName=os.path.join(save_loc,adID,'adwebsite.txt')
-    
-    
-                    file = open(textName,"w") 
-     
-                    file.write(ad_website_URL)
-                    file.write('\n')
-                    file.write(clean_text)
-                     
-                    file.close() 
-                    
-                    ads[adID]=[[adInfo[1]],ad_website_URL]
-
-                except mp.TimeoutError:
-                    print('Timeout: %s' %adInfo[0])
-                
+                            
                 except WebDriverException:
-                    print('Button click failed: %s' %adInfo[0])
+                    print('Button click failed: %s:%s' %(vid,adInfo[0]))
+
+            if len(driver.window_handles)!=1:
+                driver.switch_to.window(driver.window_handles[-1])
+                ad_website_URL=driver.current_url
+                ads[adID]=[[adInfo[1]],ad_website_URL]
+                ad_website_HTML=driver.page_source
+                clean_text=html2text.html2text(ad_website_HTML)
+                clean_text=normalize_corpus(re.sub('\s+', ' ', clean_text).strip())
                 
-        finally:
-            l.release()
-        
+                save_vids(adID,save_loc)
+                
+                textName=os.path.join(save_loc,adID,'adwebsite.txt')
     
+    
+                file = open(textName,"w") 
+     
+                file.write(ad_website_URL)
+                file.write('\n')
+                file.write(clean_text)
+                 
+                file.close() 
+            
+            
+
     driver.quit()
     return rec_vids
     
@@ -227,16 +245,15 @@ if __name__ == '__main__':
     parser.add_argument('vid_save_loc',help='Save Location for Ad Videos', type=valid_dir)
     parser.add_argument('chromedriver_path', help='Path of the chrome executable', type=str)
     parser.add_argument('--restart', help='Restart collection', action="store_true", default=False, dest='restartCollection')
-    parser.add_argument('--ncpu', nargs='?', help='Number of cores for multiprocessing, max by default', default=mp.cpu_count(), type=int, dest='mpcpu')
+    parser.add_argument('--ncpu', nargs='?', help='Number of cores for multiprocessing, 1 by default', default=1, type=int, dest='mpcpu')
     parser.add_argument('--timeout',nargs='?', help='For how long the data collection will take place (in seconds), infinite by default', default=float('inf'), type=float, dest='time_limit')
     parser.add_argument('--max_depth', nargs='?', help='Depth of Youtube exploration tree', default=1, type=positive_int, dest='search_depth')
-    
     args = parser.parse_args()
 
     ad_save_loc=args.ad_save_loc
     vid_save_loc=args.vid_save_loc
     vid_save_loc=os.path.join(vid_save_loc,'ad_data')
-    mpcpu=min(args.mpcpu,mp.cpu_count())
+    mpcpu=max(args.mpcpu,1)
     time_limit=args.time_limit
     chromedriver_path=args.chromedriver_path
     search_depth=args.search_depth
@@ -264,7 +281,10 @@ if __name__ == '__main__':
             ads = pickle.load(pickle_in)
         else:
             ads={}
-            
+    
+    manager=Manager()
+    ads=manager.dict(ads)
+    
 #    Chrome Driver Options
     chrome_options=Options()
 #    chrome_options.headless=True
@@ -283,26 +303,22 @@ if __name__ == '__main__':
             rec_vids=explore_home(chromedriver_path,chrome_options,caps)
         
         m = Manager()
-        lock = m.Lock()
                 
         pool = Pool(processes=mpcpu)
         
         for depth in range(search_depth):
             print('Depth %s' %depth)
-            multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc,lock)) for vid in rec_vids]
+            multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc)) for vid in rec_vids]
             branching_vids=[]
             
             for res in multiple_results:        
-                try:
-                    branching_vids.append(res.get(timeout=30))
-                    if time.time()-startTime<time_limit:
-                        break
-                except mp.TimeoutError:
-                    print('Timeout')
+                branching_vids.append(res.get())
+                if time.time()-startTime<time_limit:
+                    break
             res_vids=branching_vids.copy()
         
             pickle_out = open(ad_save_loc,"wb")
-            pickle.dump(ads, pickle_out)
+            pickle.dump(dict(ads), pickle_out)
             pickle_out.close()
 
         currentTime=time.time()
