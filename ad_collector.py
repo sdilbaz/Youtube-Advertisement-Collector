@@ -124,24 +124,6 @@ def explore_home(chromedriver_path,chrome_options,caps):
 
     return vids
 
-        
-
-#vid=home[27]
-#driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
-##    driver.implicitly_wait(60)
-#driver.get('https://www.youtube.com/watch?v='+vid)
-#browser_log = driver.get_log('performance') 
-#adInfo=find_ad(browser_log,vid)
-#if adInfo:
-#    try:
-#        element = WebDriverWait(driver, 2).until(EC.presence_of_element_located((By.TAG_NAME, "button")))
-#        element.click()
-#    except:
-#        element = WebDriverWait(driver, 2).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
-#        element.click()
-    
-
-
 def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc):
     print(ads)
     driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
