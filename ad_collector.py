@@ -33,18 +33,19 @@ from argparse import RawTextHelpFormatter
 # Contractions dictionary for expanding contractions in the advertisement website source text
 from contractions import CONTRACTION_MAP
 
-def save_vids(vid_ids,save_loc):
+def save_vids(vid_ids,save_loc,max_length):
     if type(vid_ids)==str:
         dest=os.path.join(save_loc,vid_ids)
         if not os.path.isdir(dest):
             os.mkdir(dest)
         if not glob.glob(os.path.join(dest,'*.mp4')):
             yt=YouTube('https://www.youtube.com/watch?v='+vid_ids)
-            yt.streams.first().download(dest)
+            if int(yt.length)<max_length:
+                yt.streams.first().download(dest)
         
     elif type(vid_ids)==list:
         for vid_id in vid_ids:
-            save_vids(vid_id,save_loc)
+            save_vids(vid_id,save_loc,max_length)
     else:
         raise TypeError('Wrong input format for saving Vids, expected str or list')
     
@@ -102,7 +103,6 @@ def explore_home(chromedriver_path,chrome_options,caps):
     time.sleep(1)
     html_source = driver.page_source
 
-
     driver.close()
     parts=html_source.split('{"webCommandMetadata":{"url":"/watch_videos?')[1:]
     vids=[]
@@ -124,8 +124,7 @@ def explore_home(chromedriver_path,chrome_options,caps):
 
     return vids
 
-def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc):
-    print(ads)
+def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_length):
     driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
 #    driver.implicitly_wait(60)
     driver.get('https://www.youtube.com/watch?v='+vid)
@@ -145,6 +144,7 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc):
         adID=adInfo[0]
         
         if adID in ads:
+            driver.quit()
             times=ads[adID][0]
             ad_website_URL=ads[adID][1]
             ads.pop(adID)
@@ -161,33 +161,37 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc):
                     element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
                     element.click()
                             
-                except WebDriverException:
-                    print('Button click failed: %s:%s' %(vid,adInfo[0]))
+                except:
+                    try:
+                        element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "ytp-ad-text.ytp-flyout-cta-description")))
+                        element.click()
+                    except:
+                        print('Button click failed: %s %s' %(vid,adInfo[0]))
 
             if len(driver.window_handles)!=1:
                 driver.switch_to.window(driver.window_handles[-1])
                 ad_website_URL=driver.current_url
                 ads[adID]=[[adInfo[1]],ad_website_URL]
                 ad_website_HTML=driver.page_source
+                
                 clean_text=html2text.html2text(ad_website_HTML)
                 clean_text=normalize_corpus(re.sub('\s+', ' ', clean_text).strip())
-                
-                save_vids(adID,save_loc)
-                
-                textName=os.path.join(save_loc,adID,'adwebsite.txt')
-    
-    
-                file = open(textName,"w") 
-     
-                file.write(ad_website_URL)
-                file.write('\n')
-                file.write(clean_text)
-                 
-                file.close() 
             
+            driver.quit()
+            save_vids(adID,save_loc,max_length)
             
+            textName=os.path.join(save_loc,adID,'adwebsite.txt')
 
-    driver.quit()
+
+            file = open(textName,"w") 
+ 
+            file.write(ad_website_URL)
+            file.write('\n')
+            file.write(clean_text)
+             
+            file.close() 
+    else:
+        driver.quit()
     return rec_vids
     
 
@@ -230,6 +234,7 @@ if __name__ == '__main__':
     parser.add_argument('--ncpu', nargs='?', help='Number of cores for multiprocessing, 1 by default', default=1, type=int, dest='mpcpu')
     parser.add_argument('--timeout',nargs='?', help='For how long the data collection will take place (in seconds), infinite by default', default=float('inf'), type=float, dest='time_limit')
     parser.add_argument('--max_depth', nargs='?', help='Depth of Youtube exploration tree', default=1, type=positive_int, dest='search_depth')
+    parser.add_argument('--max_ad_length', nargs='?', help='Maximum allowed length of Youtube advertisement videos in seconds', default=600, type=positive_int, dest='max_length')
     args = parser.parse_args()
 
     ad_save_loc=args.ad_save_loc
@@ -239,7 +244,9 @@ if __name__ == '__main__':
     time_limit=args.time_limit
     chromedriver_path=args.chromedriver_path
     search_depth=args.search_depth
-
+    max_length=args.max_length
+    saving_interval=10
+    
     if not os.path.isdir(vid_save_loc):
         os.mkdir(vid_save_loc)
 
@@ -290,17 +297,19 @@ if __name__ == '__main__':
         
         for depth in range(search_depth):
             print('Depth %s' %depth)
-            multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc)) for vid in rec_vids]
+            multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc,max_length)) for vid in rec_vids]
             branching_vids=[]
             
-            for res in multiple_results:        
+            for ind,res in enumerate(multiple_results):        
                 branching_vids.append(res.get())
+                if not ind%saving_interval:
+                    pickle_out = open(ad_save_loc,"wb")
+                    pickle.dump(dict(ads), pickle_out)
+                    pickle_out.close()
+
                 if time.time()-startTime<time_limit:
                     break
             res_vids=branching_vids.copy()
         
-            pickle_out = open(ad_save_loc,"wb")
-            pickle.dump(dict(ads), pickle_out)
-            pickle_out.close()
 
         currentTime=time.time()
