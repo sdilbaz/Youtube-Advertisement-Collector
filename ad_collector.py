@@ -154,19 +154,27 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
             # Fullscreen
 #                driver.find_element_by_tag_name('body').send_keys("f")
             try:
-                element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.TAG_NAME, "button")))
+                print(".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")
+                element = WebDriverWait(driver, 6).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
                 element.click()
             except:
                 try:
-                    element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
-                    element.click()
-                            
+                    print("button")
+                    element = driver.find_element_by_tag_name("button")
+                    element.click()  
                 except:
                     try:
-                        element = WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "ytp-ad-text.ytp-flyout-cta-description")))
+                        print(".ytp-ad-button-text")
+                        element = driver.find_element_by_css_selector(".ytp-ad-button-text")
                         element.click()
                     except:
-                        print('Button click failed: %s %s' %(vid,adInfo[0]))
+                        try:
+                            print(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
+                            element = driver.find_element_by_css_selector(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
+                            element.click()
+                        except:
+                            print('Button click failed: %s %s' %(vid,adInfo[0]))
+                        
 
             if len(driver.window_handles)!=1:
                 driver.switch_to.window(driver.window_handles[-1])
@@ -303,6 +311,7 @@ if __name__ == '__main__':
             for ind,res in enumerate(multiple_results):        
                 branching_vids.append(res.get())
                 if not ind%saving_interval:
+                    print('saving')
                     pickle_out = open(ad_save_loc,"wb")
                     pickle.dump(dict(ads), pickle_out)
                     pickle_out.close()
