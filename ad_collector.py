@@ -154,22 +154,18 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
             # Fullscreen
 #                driver.find_element_by_tag_name('body').send_keys("f")
             try:
-                print(".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")
                 element = WebDriverWait(driver, 6).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
                 element.click()
             except:
                 try:
-                    print("button")
                     element = driver.find_element_by_tag_name("button")
                     element.click()  
                 except:
                     try:
-                        print(".ytp-ad-button-text")
                         element = driver.find_element_by_css_selector(".ytp-ad-button-text")
                         element.click()
                     except:
                         try:
-                            print(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
                             element = driver.find_element_by_css_selector(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
                             element.click()
                         except:
