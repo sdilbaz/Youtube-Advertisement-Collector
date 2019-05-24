@@ -154,46 +154,52 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
             # Fullscreen
 #                driver.find_element_by_tag_name('body').send_keys("f")
             try:
+                print(".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")
                 element = WebDriverWait(driver, 6).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
                 element.click()
             except:
                 try:
+                    print("button")
                     element = driver.find_element_by_tag_name("button")
                     element.click()  
                 except:
                     try:
+                        print(".ytp-ad-button-text")
                         element = driver.find_element_by_css_selector(".ytp-ad-button-text")
                         element.click()
                     except:
                         try:
+                            print(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
                             element = driver.find_element_by_css_selector(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
                             element.click()
                         except:
                             print('Button click failed: %s %s' %(vid,adInfo[0]))
                         
 
-            if len(driver.window_handles)!=1:
+            if len(driver.window_handles)>1:
                 driver.switch_to.window(driver.window_handles[-1])
                 ad_website_URL=driver.current_url
                 ads[adID]=[[adInfo[1]],ad_website_URL]
                 ad_website_HTML=driver.page_source
                 
+                if not os.path.isdir(os.path.join(save_loc,adID)):
+                    os.mkdir(os.path.join(save_loc,adID))
                 clean_text=html2text.html2text(ad_website_HTML)
                 clean_text=normalize_corpus(re.sub('\s+', ' ', clean_text).strip())
-            
+                
+                textName=os.path.join(save_loc,adID,'adwebsite.txt')
+                
+                file = open(textName,"w") 
+     
+                file.write(ad_website_URL)
+                file.write('\n')
+                file.write(clean_text)
+             
+                file.close() 
+                
             driver.quit()
             save_vids(adID,save_loc,max_length)
             
-            textName=os.path.join(save_loc,adID,'adwebsite.txt')
-
-
-            file = open(textName,"w") 
- 
-            file.write(ad_website_URL)
-            file.write('\n')
-            file.write(clean_text)
-             
-            file.close() 
     else:
         driver.quit()
     return rec_vids
