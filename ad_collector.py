@@ -11,10 +11,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-#from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.common.exceptions import WebDriverException
-#from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
 import html2text
@@ -151,34 +149,44 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
             ads[adID]=[times+[adInfo[1]],ad_website_URL]
             #ads[adID][0].append(adInfo[1])
         else:
-            # Fullscreen
-#                driver.find_element_by_tag_name('body').send_keys("f")
+#            Fullscreen
+#            driver.find_element_by_tag_name('body').send_keys("f")
             try:
-                print(".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")
-                element = WebDriverWait(driver, 6).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")))
+                element=WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, "//*[starts-with(@id, 'visit-advertiser:')]")))
                 element.click()
             except:
                 try:
-                    print("button")
-                    element = driver.find_element_by_tag_name("button")
-                    element.click()  
+                    element = driver.find_element_by_css_selector(".ytp-ad-button.ytp-ad-visit-advertiser-button.ytp-ad-button-link")
+                    element.click()
                 except:
                     try:
-                        print(".ytp-ad-button-text")
-                        element = driver.find_element_by_css_selector(".ytp-ad-button-text")
-                        element.click()
+                        element = driver.find_element_by_tag_name("button")
+                        element.click()  
                     except:
                         try:
-                            print(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
-                            element = driver.find_element_by_css_selector(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
+                            element = driver.find_element_by_css_selector(".ytp-ad-button-text")
                             element.click()
                         except:
-                            print('Button click failed: %s %s' %(vid,adInfo[0]))
-                        
+                            try:
+                                element = driver.find_element_by_css_selector(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
+                                element.click()
+                            except:
+                                print('Button click failed: \nOriginal Video ID: %s \nAdvertisement Video: %s' %(vid,adInfo[0]))
+                                button_locator(driver)
+                                time.sleep(1000)
 
             if len(driver.window_handles)>1:
                 driver.switch_to.window(driver.window_handles[-1])
-                ad_website_URL=driver.current_url
+                num_trials=10
+                for trial in range(num_trials):
+                    try:
+                        ad_website_URL=driver.current_url
+                        continue
+                    except WebDriverException:
+                        time.sleep(5)
+                if trial==num_trials-1:
+                    driver.quit()
+                    return rec_vids
                 ads[adID]=[[adInfo[1]],ad_website_URL]
                 ad_website_HTML=driver.page_source
                 
@@ -203,8 +211,22 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
     else:
         driver.quit()
     return rec_vids
-    
 
+def button_locator(driver):
+    driver.find_element_by_tag_name('body').send_keys(Keys.SPACE)
+    el=driver.switch_to_active_element()
+    print(el.attribute)
+    print('Att:')
+    attrs = driver.execute_script('var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;', el)
+    print(attrs)
+    for k in range(20):
+        driver.find_element_by_tag_name('body').send_keys(Keys.TAB)
+        el=driver.switch_to_active_element()
+        print(el.text)
+        print('Att:')
+        attrs = driver.execute_script('var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;', el)
+        print(attrs)
+        
 def find_ad(browser_log,vid):
     for k in range(len(browser_log)):
         if browser_log[k]['message'].find('adunit')!=-1 and browser_log[k]['message'].find(vid)!=-1:
@@ -236,6 +258,7 @@ def valid_dir(argument):
 
 if __name__ == '__main__':
     # Argument Parsing
+    #python "D:\2018-2019\CS525 Informational Retrieval and Social Media\finalReader.py" D:\test\ads.pickle D:\test "D:\2018-2019\CS525 Informational Retrieval and Social Media\Project\chromedriver.exe" --ncpu 1 --restart --max_depth 4
     parser = argparse.ArgumentParser(description='Scrapes Youtube ads and advertising company websites. \nUse --restart to restart the scraping from scratch by deleting previous data\nExample Usage: python finalReader.py E:\ads\ads.pickle E:\ads --ncpu 2', formatter_class=RawTextHelpFormatter)
     parser.add_argument('ad_save_loc',help='Save Location for Ad Main Dictionary', type=valid_pickle)
     parser.add_argument('vid_save_loc',help='Save Location for Ad Videos', type=valid_dir)
@@ -245,6 +268,7 @@ if __name__ == '__main__':
     parser.add_argument('--timeout',nargs='?', help='For how long the data collection will take place (in seconds), infinite by default', default=float('inf'), type=float, dest='time_limit')
     parser.add_argument('--max_depth', nargs='?', help='Depth of Youtube exploration tree', default=1, type=positive_int, dest='search_depth')
     parser.add_argument('--max_ad_length', nargs='?', help='Maximum allowed length of Youtube advertisement videos in seconds', default=600, type=positive_int, dest='max_length')
+    parser.add_argument('--saving_interval', nargs='?', help='Saving interval for the dictionary of advertisements', default=10, type=positive_int, dest='saving_interval')
     args = parser.parse_args()
 
     ad_save_loc=args.ad_save_loc
@@ -255,7 +279,7 @@ if __name__ == '__main__':
     chromedriver_path=args.chromedriver_path
     search_depth=args.search_depth
     max_length=args.max_length
-    saving_interval=10
+    saving_interval=args.saving_interval
     
     if not os.path.isdir(vid_save_loc):
         os.mkdir(vid_save_loc)
