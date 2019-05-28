@@ -293,7 +293,8 @@ if __name__ == '__main__':
     
     manager=Manager()
     ads=manager.dict(ads)
-    
+    pool = Pool(processes=mpcpu)
+
 #    Chrome Driver Options
     chrome_options=Options()
 #    chrome_options.headless=True
@@ -310,11 +311,7 @@ if __name__ == '__main__':
         while not rec_vids:
             time.sleep(60)
             rec_vids=explore_home(chromedriver_path,chrome_options,caps)
-        
-        m = Manager()
-                
-        pool = Pool(processes=mpcpu)
-        
+                                
         for depth in range(search_depth):
             print('Depth %s' %depth)
             multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc,max_length)) for vid in rec_vids]
