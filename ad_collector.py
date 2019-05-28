@@ -163,16 +163,13 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
 
             if len(driver.window_handles)>1:
                 driver.switch_to.window(driver.window_handles[-1])
-                num_trials=10
+                num_trials=5
                 for trial in range(num_trials):
                     try:
                         ad_website_URL=driver.current_url
                         continue
                     except WebDriverException:
                         time.sleep(5)
-                if trial==num_trials-1:
-                    driver.quit()
-                    return rec_vids
                 ads[adID]=[[adInfo[1]],ad_website_URL]
                 ad_website_HTML=driver.page_source
                 
