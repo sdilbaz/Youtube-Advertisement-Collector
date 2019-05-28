@@ -96,31 +96,17 @@ def normalize_corpus(corpus, contraction_expansion=True,
 
 
 def explore_home(chromedriver_path,chrome_options,caps):
+    scroll_sleep=1
+    scroll_count=20
     driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
     driver.get('https://www.youtube.com')
-    time.sleep(1)
-    html_source = driver.page_source
-
-    driver.close()
-    parts=html_source.split('{"webCommandMetadata":{"url":"/watch_videos?')[1:]
-    vids=[]
-    for part in parts:
-        part=part[part.find('video_ids=')+10:]
+    time.sleep(scroll_sleep)
+    for scroll in range(scroll_count):
+        driver.execute_script("window.scrollTo(0, "+str(scroll*driver.get_window_size()['height'])+");" )
+        time.sleep(scroll_sleep)
         
-        if part.find('\\u')!=-1:
-            if part.find('"')!=-1:
-                end=min(part.find('\\u'),part.find('"'))
-            else:
-                end=part.find('\\u')
-        elif part.find('"')!=-1:
-            end=part.find('"')
-        else:
-            print('No video found on YouTube homepage')
-        concat_list=part[:end]
-        vids.extend(concat_list.split('%2C'))
-    vids=[vid for vid in vids if len(re.findall(r'[0-9]|[a-z]|[A-Z]|_|-',vid))==11 and len(vid)==11]
-
-    return vids
+    browser_log = driver.get_log('performance')
+    return [item[:11] for item in str(browser_log).split('https://i.ytimg.com/vi/')]
 
 def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_length):
     driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
