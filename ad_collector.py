@@ -152,7 +152,7 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
 #            Fullscreen
 #            driver.find_element_by_tag_name('body').send_keys("f")
             try:
-                element=WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, "//*[starts-with(@id, 'visit-advertiser:')]")))
+                element=WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//*[starts-with(@id, 'visit-advertiser:')]")))
                 element.click()
             except:
                 try:
