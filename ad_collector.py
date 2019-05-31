@@ -11,8 +11,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+#from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.common.exceptions import WebDriverException
+#from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
 import html2text
@@ -21,7 +23,7 @@ import html2text
 from pytube import YouTube
 
 # Multiprocessing tools
-from multiprocessing import Lock, Manager, Queue, Pool
+from multiprocessing import Lock, Manager, Pool, Process
 import multiprocessing as mp
 
 # Misc modules
@@ -31,19 +33,30 @@ from argparse import RawTextHelpFormatter
 # Contractions dictionary for expanding contractions in the advertisement website source text
 from contractions import CONTRACTION_MAP
 
-def save_vids(vid_ids,save_loc,max_length):
+
+def download_vids(vid_queue,save_loc,max_length):
+    while not vid_queue.qsize():
+        vid_id=vid_queue.get()
+        print(vid_id)
+        dest=os.path.join(save_loc,vid_id)
+        if not os.path.isdir(dest):
+            os.mkdir(dest)
+        if not glob.glob(os.path.join(dest,'*.mp4')):
+            yt=YouTube('https://www.youtube.com/watch?v='+vid_id)
+            if int(yt.length)<max_length:
+                yt.streams.first().download(dest)
+
+def add2q(vid_queue,vid_ids,save_loc):
     if type(vid_ids)==str:
         dest=os.path.join(save_loc,vid_ids)
         if not os.path.isdir(dest):
             os.mkdir(dest)
         if not glob.glob(os.path.join(dest,'*.mp4')):
-            yt=YouTube('https://www.youtube.com/watch?v='+vid_ids)
-            if int(yt.length)<max_length:
-                yt.streams.first().download(dest)
+            vid_queue.put(vid_ids)
         
     elif type(vid_ids)==list:
         for vid_id in vid_ids:
-            save_vids(vid_id,save_loc,max_length)
+            add2q(vid_queue,vid_id,save_loc)
     else:
         raise TypeError('Wrong input format for saving Vids, expected str or list')
     
@@ -106,9 +119,10 @@ def explore_home(chromedriver_path,chrome_options,caps):
         time.sleep(scroll_sleep)
         
     browser_log = driver.get_log('performance')
-    return [item[:11] for item in str(browser_log).split('https://i.ytimg.com/vi/')]
+    vids = [item[:11] for item in str(browser_log).split('https://i.ytimg.com/vi/')]
+    return [vid for vid in vids if len(re.findall(r'[0-9]|[a-z]|[A-Z]|_|-',vid))==11 and len(vid)==11]
 
-def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_length):
+def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_length,vid_queue):
     driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
 #    driver.implicitly_wait(60)
     driver.get('https://www.youtube.com/watch?v='+vid)
@@ -135,8 +149,6 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
             ads[adID]=[times+[adInfo[1]],ad_website_URL]
             #ads[adID][0].append(adInfo[1])
         else:
-#            Fullscreen
-#            driver.find_element_by_tag_name('body').send_keys("f")
             try:
                 element=WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//*[starts-with(@id, 'visit-advertiser:')]")))
                 element.click()
@@ -157,13 +169,13 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
                                 element = driver.find_element_by_css_selector(".ytp-ad-button.ytp-ad-button-link.ytp-ad-clickable")
                                 element.click()
                             except:
-                                print('Button click failed: \nOriginal Video ID: %s \nAdvertisement Video: %s' %(vid,adInfo[0]))
+                                print('Button click failed.\nOriginal ID: %s Ad ID: %s' %(vid,adInfo[0]))
                                 button_locator(driver)
                                 time.sleep(1000)
 
             if len(driver.window_handles)>1:
                 driver.switch_to.window(driver.window_handles[-1])
-                num_trials=5
+                num_trials=10
                 for trial in range(num_trials):
                     try:
                         ad_website_URL=driver.current_url
@@ -189,7 +201,7 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
                 file.close() 
                 
             driver.quit()
-            save_vids(adID,save_loc,max_length)
+            add2q(vid_queue,adID,save_loc)
             
     else:
         driver.quit()
@@ -241,7 +253,6 @@ def valid_dir(argument):
 
 if __name__ == '__main__':
     # Argument Parsing
-    #python "D:\2018-2019\CS525 Informational Retrieval and Social Media\finalReader.py" D:\test\ads.pickle D:\test "D:\2018-2019\CS525 Informational Retrieval and Social Media\Project\chromedriver.exe" --ncpu 1 --restart --max_depth 4
     parser = argparse.ArgumentParser(description='Scrapes Youtube ads and advertising company websites. \nUse --restart to restart the scraping from scratch by deleting previous data\nExample Usage: python finalReader.py E:\ads\ads.pickle E:\ads --ncpu 2', formatter_class=RawTextHelpFormatter)
     parser.add_argument('ad_save_loc',help='Save Location for Ad Main Dictionary', type=valid_pickle)
     parser.add_argument('vid_save_loc',help='Save Location for Ad Videos', type=valid_dir)
@@ -290,11 +301,11 @@ if __name__ == '__main__':
     
     manager=Manager()
     ads=manager.dict(ads)
+    vid2load=manager.Queue()
     pool = Pool(processes=mpcpu)
-
+    
 #    Chrome Driver Options
     chrome_options=Options()
-#    chrome_options.headless=True
     chrome_options.add_argument('--mute-audio')
     caps = DesiredCapabilities.CHROME
     caps['loggingPrefs'] = {'performance': 'ALL'}
@@ -308,10 +319,10 @@ if __name__ == '__main__':
         while not rec_vids:
             time.sleep(60)
             rec_vids=explore_home(chromedriver_path,chrome_options,caps)
-                                
+        
         for depth in range(search_depth):
             print('Depth %s' %depth)
-            multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc,max_length)) for vid in rec_vids]
+            multiple_results=[pool.apply_async(explore_vid, (chromedriver_path,chrome_options,caps,vid,ads,vid_save_loc,max_length,vid2load)) for vid in rec_vids]
             branching_vids=[]
             
             for ind,res in enumerate(multiple_results):        
@@ -321,7 +332,8 @@ if __name__ == '__main__':
                     pickle_out = open(ad_save_loc,"wb")
                     pickle.dump(dict(ads), pickle_out)
                     pickle_out.close()
-
+                    download_vids(vid2load,vid_save_loc,max_length)
+                    
                 if time.time()-startTime<time_limit:
                     break
             res_vids=branching_vids.copy()
