@@ -35,7 +35,7 @@ from contractions import CONTRACTION_MAP
 
 
 def download_vids(vid_queue,save_loc,max_length,stop_flag,ad_save_loc,ads):
-    while 1:
+    while not stop_flag.value:
         pickle_out = open(ad_save_loc,"wb")
         pickle.dump(dict(ads), pickle_out)
         pickle_out.close()
@@ -296,7 +296,8 @@ if __name__ == '__main__':
             ads={}
     
     manager=Manager()
-    stop_flag = manager.Value('b', False)
+    
+ = manager.Value('b', False)
     ads=manager.dict(ads)
     vid2load=manager.Queue()
     pool = Pool(processes=mpcpu)
