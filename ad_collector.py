@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr  2 22:44:09 2019
+@author: Serdarcan Dilbaz
+"""
+
 # Web related modules
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -29,23 +35,27 @@ from contractions import CONTRACTION_MAP
 
 
 def download_vids(vid_queue,save_loc,max_length,stop_flag,ad_save_loc,ads):
-    pickle_out = open(ad_save_loc,"wb")
-    pickle.dump(dict(ads), pickle_out)
-    pickle_out.close()
-
-    if not stop_flag.get():
-        while not vid_queue.qsize():
-    #        print(vid_queue.qsize())
-            vid_id=vid_queue.get()
-            dest=os.path.join(save_loc,vid_id)
-            if not os.path.isdir(dest):
-                os.mkdir(dest)
-            if not glob.glob(os.path.join(dest,'*.mp4')):
-                yt=YouTube('https://www.youtube.com/watch?v='+vid_id)
-                if int(yt.length)<max_length:
-                    yt.streams.first().download(dest)
-        time.sleep(5)
-        download_vids(vid_queue,save_loc,max_length,stop_flag,ad_save_loc,ads)
+    while 1:
+        pickle_out = open(ad_save_loc,"wb")
+        pickle.dump(dict(ads), pickle_out)
+        pickle_out.close()
+        if vid_queue.qsize():
+            while vid_queue.qsize():
+                vid_id=vid_queue.get()
+                dest=os.path.join(save_loc,vid_id)
+                if not os.path.isdir(dest):
+                    os.mkdir(dest)
+                if not glob.glob(os.path.join(dest,'*.mp4')):
+                    for k in range(8):
+                        try:
+                            yt=YouTube('https://www.youtube.com/watch?v='+vid_id)
+                            if int(yt.length)<max_length:
+                                yt.streams.first().download(dest)
+                            break
+                        except:
+                            time.sleep(2)
+        else:
+            time.sleep(1)
 
 def add2q(vid_queue,vid_ids,save_loc):
     if type(vid_ids)==str:
@@ -121,39 +131,10 @@ def explore_home(chromedriver_path,chrome_options,caps):
         
     browser_log = driver.get_log('performance')
     vids = [item[:11] for item in str(browser_log).split('https://i.ytimg.com/vi/')]
-    return [vid for vid in vids if len(re.findall(r'[0-9]|[a-z]|[A-Z]|_|-',vid))==11 and len(vid)==11]
-
-#    driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
-#    driver.get('https://www.youtube.com')
-#    time.sleep(1)
-#    html_source = driver.page_source
-#
-#    driver.close()
-#    parts=html_source.split('{"webCommandMetadata":{"url":"/watch_videos?')[1:]
-#    vids=[]
-#    for part in parts:
-#        part=part[part.find('video_ids=')+10:]
-#        
-#        if part.find('\\u')!=-1:
-#            if part.find('"')!=-1:
-#                end=min(part.find('\\u'),part.find('"'))
-#            else:
-#                end=part.find('\\u')
-#        elif part.find('"')!=-1:
-#            end=part.find('"')
-#        else:
-#            print('No video found on YouTube homepage')
-#        concat_list=part[:end]
-#        vids.extend(concat_list.split('%2C'))
-#    vids=[vid for vid in vids if len(re.findall(r'[0-9]|[a-z]|[A-Z]|_|-',vid))==11 and len(vid)==11]
-#
-#    return vids
-
+    return [vid for vid in vids if len(re.findall(r'[0-9]|[a-z]|[A-Z]|_|-',vid))==11]
 
 def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_length,vid_queue):
-#    print(str(vid_queue.qsize())+'/'+str(len(os.listdir(save_loc))))
     driver=webdriver.Chrome(executable_path=chromedriver_path,options=chrome_options,desired_capabilities=caps)
-#    driver.implicitly_wait(60)
     driver.get('https://www.youtube.com/watch?v='+vid)
     time.sleep(2)
     
@@ -182,7 +163,6 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
 #            driver.find_element_by_tag_name('body').send_keys("f")
             try:
                 element=WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//*[starts-with(@id, 'visit-advertiser:')]")))
-#                element=driver.find_element_by_xpath("//*[starts-with(@id, 'visit-advertiser:')]")
                 element.click()
             except:
                 try:
@@ -203,8 +183,6 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
                                 element.click()
                             except:
                                 print('Button click failed.\nOriginal ID: %s Ad ID: %s' %(vid,adInfo[0]))
-                                button_locator(driver)
-                                time.sleep(1000)
 
             if len(driver.window_handles)>1:
                 driver.switch_to.window(driver.window_handles[-1])
@@ -239,21 +217,6 @@ def explore_vid(chromedriver_path,chrome_options,caps,vid,ads,save_loc,max_lengt
     else:
         driver.quit()
     return rec_vids
-
-def button_locator(driver):
-    driver.find_element_by_tag_name('body').send_keys(Keys.SPACE)
-    el=driver.switch_to_active_element()
-    print(el.attribute)
-    print('Att:')
-    attrs = driver.execute_script('var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;', el)
-    print(attrs)
-    for k in range(20):
-        driver.find_element_by_tag_name('body').send_keys(Keys.TAB)
-        el=driver.switch_to_active_element()
-        print(el.text)
-        print('Att:')
-        attrs = driver.execute_script('var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) { items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;', el)
-        print(attrs)
         
 def find_ad(browser_log,vid):
     for k in range(len(browser_log)):
@@ -286,7 +249,6 @@ def valid_dir(argument):
 
 if __name__ == '__main__':
     # Argument Parsing
-    #python "D:\2018-2019\CS525 Informational Retrieval and Social Media\finalReader.py" D:\test\ads.pickle D:\test "D:\2018-2019\CS525 Informational Retrieval and Social Media\Project\chromedriver.exe" --ncpu 1 --restart --max_depth 4
     parser = argparse.ArgumentParser(description='Scrapes Youtube ads and advertising company websites. \nUse --restart to restart the scraping from scratch by deleting previous data\nExample Usage: python finalReader.py E:\ads\ads.pickle E:\ads --ncpu 2', formatter_class=RawTextHelpFormatter)
     parser.add_argument('ad_save_loc',help='Save Location for Ad Main Dictionary', type=valid_pickle)
     parser.add_argument('vid_save_loc',help='Save Location for Ad Videos', type=valid_dir)
@@ -341,6 +303,7 @@ if __name__ == '__main__':
     p=Process(target=download_vids,args=[vid2load,vid_save_loc,max_length,stop_flag,ad_save_loc,ads])
     
     p.start()
+
     
 #    Chrome Driver Options
     chrome_options=Options()
@@ -365,8 +328,9 @@ if __name__ == '__main__':
             branching_vids=[]
             
             for ind,res in enumerate(multiple_results):    
-                branching_vids.append(res.get())                    
-                if time.time()-startTime<time_limit:
+                branching_vids.append(res.get())
+                
+                if (time.time()-startTime)<time_limit:
                     stop_flag.set(True)
                     break
             res_vids=branching_vids.copy()
